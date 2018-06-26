@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """MIT License
 
 Copyright (c) 2018 Mauricio Carvalho Mathias de Paulo
