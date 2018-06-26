@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 """MIT License
 
 Copyright (c) 2018 Mauricio Carvalho Mathias de Paulo
@@ -21,7 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE."""
 import ogr
-import math 
+import math, sys
 
 class MWVD():
     def ApoloniusCircle(self,s1,s2,w1,w2,  extent): #ogrpoint s1,s2, double w1,w2
@@ -79,14 +78,13 @@ class MWVD():
             return domBoundary
         else:
             return extent.Difference(domBoundary)
-    def getMWVLayer(self,  sites,  weights,  outDS,  layerName, extent):
-        outLayer = outDS.CreateLayer('test.geojson', geom_type=ogr.wkbPolygon )
-        
-        for i1, site1 in enumerate(sites):
+    def getMWVLayer(self,  sites,  outDS,  layerName, extent):
+        outLayer = outDS.CreateLayer(layerName, geom_type=ogr.wkbPolygon )
+        for site1 in sites:
             dominance=extent
-            for i2, site2 in enumerate(sites):
+            for site2 in sites:
                 if site1!=site2:
-                    twoSitesDominance=self.ApoloniusCircle(site1, site2, weights[i1], weights[i2], extent)
+                    twoSitesDominance=self.ApoloniusCircle(site1['p'], site2['p'], site1['w'], site2['w'], extent)
                     dominance=dominance.Intersection(twoSitesDominance)
             # Get the output Layer's Feature Definition
             featureDefn = outLayer.GetLayerDefn()
@@ -96,19 +94,41 @@ class MWVD():
             outFeature.SetGeometry(dominance.GetLinearGeometry())
             # Add new feature to output Layer
             outLayer.CreateFeature(outFeature)
+            
+    def readSitesFromLayer(self, ds, layerName, weightAttribute):
+        layer=ds.GetLayerByName(layerName)
+        sites=[]
+        for feature in layer:
+            w=feature.GetFieldAsDouble(weightAttribute)
+            p=feature.GetGeometryRef()
+            sites.append({'p':p.Clone(),  'w':w})
+        return sites
+            
+    def getLayerExtent(self, ds,  layerName):
+        layer=ds.GetLayerByName(layerName)
+        extent=ogr.Geometry( ogr.wkbPolygon)
+        lring=ogr.Geometry( ogr.wkbLinearRing)
+        le=layer.GetExtent()
+        lring.AddPoint(le[0], le[0])
+        lring.AddPoint(le[0], le[3])
+        lring.AddPoint(le[1], le[3])
+        lring.AddPoint(le[1], le[0])
+        lring.AddPoint(le[0], le[0])
+        extent.AddGeometry(lring)
+        d=abs(le[0]-le[2])
+        extent=extent.Buffer(d/10., 0)
+        return extent
+        
 
 if __name__=="__main__":
-    extent=ogr.CreateGeometryFromWkt('POLYGON((-10 -10, -10 10, 10 10, 10 -10, -10 -10))')
-    s1=ogr.CreateGeometryFromWkt('POINT(0 0)')
-    s2=ogr.CreateGeometryFromWkt('POINT(10 0)')
-    test=MWVD()
-    #print(test.ApoloniusCircle(s1,s2,2,1, extent).ExportToWkt())
-    #print (test.ApoloniusCircle(s1,s2,1,1, extent).ExportToWkt())
-    #print(test.ApoloniusCircle(s2,s1,1,2, extent).ExportToWkt())
-    outDriver = ogr.GetDriverByName('GPKG')
-    sites=[s1, s2]
-    weights=[3, 4]
-    # Create the output GeoJSON
-    outDS = outDriver.CreateDataSource('test.gpkg')
+    if (len(sys.argv) !=5):
+        print("USAGE:")
+        print("python pymwv.py ogrDataSource SitesLayerName WeightAttribute OutpuLayerName")
+    else:
+        runObj=MWVD()
+        outDS=ogr.Open(sys.argv[1], 1)
+        sites=runObj.readSitesFromLayer(outDS, sys.argv[2], sys.argv[3])
+        extent=runObj.getLayerExtent(outDS,  sys.argv[2])
+        runObj.getMWVLayer(sites, outDS, sys.argv[4], extent)
+ 
 
-    test.getMWVLayer(sites, weights, outDS, 'mwvd', extent)
