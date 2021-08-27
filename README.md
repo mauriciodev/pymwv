@@ -11,3 +11,9 @@ python3-gdal
 python pymwv.py ogrDataSource SitesLayerName WeightAttribute OutpuLayerName
 
 The program will create a new layer on the same ogrDataSource. I hope that this piece of code will be usefull for you.
+
+- Example:
+unzip test_data.zip
+python pymwv.py ./test_data test_data weight out_data
+
+
