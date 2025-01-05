@@ -75,7 +75,7 @@ class MWVD():
             domBoundary=ogr.Geometry(ogr.wkbCurvePolygon)
             domBoundary.AddGeometry(arc)
         if s1.Intersects(domBoundary):
-            return domBoundary
+            return domBoundary.Intersection(extent)
         else:
             return extent.Difference(domBoundary)
     def getMWVLayer(self,  sites,  outDS,  layerName, extent):
