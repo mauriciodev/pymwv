@@ -7,14 +7,18 @@ Thank you for your interest in this small piece of code. GDAL has evolved a lot 
 - Requirements:  
 python3-gdal
 
-- Usage:  
+- Usage:
+```bash
 python pymwv.py ogrDataSource SitesLayerName WeightAttribute OutpuLayerName
+```bash
 
 The program will create a new layer on the same ogrDataSource. I hope that this piece of code will be usefull for you.
 
 - Example:  
+```bash
 unzip test_data.zip  
 python pymwv.py ./test_data test_data weight out_data
+```
 
 - Colab Notebook
 We added a colab notebook that uses data from a list of sites and weights to show the class working. Thanks micycle1.
