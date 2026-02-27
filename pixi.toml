@@ -1,0 +1,13 @@
+[workspace]
+authors = ["Mauricio de Paulo <mauricio.dev@gmail.com>"]
+channels = ["conda-forge"]
+name = "pymwv"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+gdal = ">=3.12.2,<4"
+folium = ">=0.20.0,<0.21"
+geopandas = ">=1.1.2,<2"

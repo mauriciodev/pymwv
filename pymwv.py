@@ -78,22 +78,38 @@ class MWVD():
             return domBoundary.Intersection(extent)
         else:
             return extent.Difference(domBoundary)
+
     def getMWVLayer(self,  sites,  outDS,  layerName, extent):
-        outLayer = outDS.CreateLayer(layerName, geom_type=ogr.wkbPolygon )
+        polygons = self.get_dominance_polygons(sites,extent)
+        outLayer = outDS.CreateLayer(layerName, geom_type=ogr.wkbPolygon, options=["OVERWRITE=YES"] )
+        for dominance in polygons:
+            # Get the output Layer's Feature Definition
+            featureDefn = outLayer.GetLayerDefn()
+            # create a new feature
+            outFeature = ogr.Feature(featureDefn)
+            # Set new geometry
+            outFeature.SetGeometry(dominance)
+            # Add new feature to output Layer
+            outLayer.CreateFeature(outFeature)
+        outDS.SyncToDisk()
+        return outLayer
+
+    def get_dominance_polygons(self, sites, extent):
+        polygons = []
+
         for site1 in sites:
             dominance=extent
             for site2 in sites:
                 if site1!=site2:
                     twoSitesDominance=self.ApoloniusCircle(site1['p'], site2['p'], site1['w'], site2['w'], extent)
                     dominance=dominance.Intersection(twoSitesDominance)
-            # Get the output Layer's Feature Definition
-            featureDefn = outLayer.GetLayerDefn()
-            # create a new feature
-            outFeature = ogr.Feature(featureDefn)
-            # Set new geometry
-            outFeature.SetGeometry(dominance.GetLinearGeometry())
-            # Add new feature to output Layer
-            outLayer.CreateFeature(outFeature)
+            polygons.append(dominance.GetLinearGeometry())
+        return polygons
+        
+    def getMWVPolygons(self, points, weights):
+        extent = self.create_extent(points)
+        sites = self.get_sites_from_coords_weights(points, weights)
+        return self.get_dominance_polygons(sites,extent)
             
     def readSitesFromLayer(self, ds, layerName, weightAttribute):
         layer=ds.GetLayerByName(layerName)
@@ -119,6 +135,50 @@ class MWVD():
         extent=extent.Buffer(d/10., 0)
         return extent
         
+    def get_sites_from_coords_weights(self, points, weights):
+        """Converts tuples to ogr.wkbPoint"""
+        sites = []
+        
+        for point, weight in zip(points, weights):
+            p = ogr.Geometry(ogr.wkbPoint)
+            p.AddPoint(point[0], point[1])
+            sites.append({'p': p, 'w': weight})
+        return sites
+
+    def create_extent(self,points):
+        """
+        Creates an extent polygon from a list of points.
+
+        Args:
+        points: A list of (x, y) tuples representing the points.
+
+        Returns:
+        ogr.Geometry: An ogr.Geometry object representing the extent polygon.
+        """
+        minx = min(p[0] for p in points)
+        miny = min(p[1] for p in points)
+        maxx = max(p[0] for p in points)
+        maxy = max(p[1] for p in points)
+
+        # Create a slightly larger extent for buffering
+        dx = (maxx - minx) / 10.
+        dy = (maxy - miny) / 10.
+        minx -= dx
+        miny -= dy
+        maxx += dx
+        maxy += dy
+
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        ring.AddPoint(minx, miny)
+        ring.AddPoint(minx, maxy)
+        ring.AddPoint(maxx, maxy)
+        ring.AddPoint(maxx, miny)
+        ring.AddPoint(minx, miny)
+
+        extent = ogr.Geometry(ogr.wkbPolygon)
+        extent.AddGeometry(ring)
+        return extent
+
 
 if __name__=="__main__":
     if (len(sys.argv) !=5):
@@ -130,5 +190,18 @@ if __name__=="__main__":
         sites=runObj.readSitesFromLayer(outDS, sys.argv[2], sys.argv[3])
         extent=runObj.getLayerExtent(outDS,  sys.argv[2])
         runObj.getMWVLayer(sites, outDS, sys.argv[4], extent)
- 
+        del outDS
+        
 
+    points = [
+        (1, 1),
+        (3, 2),
+        (5, 1),
+        (4, 4),
+        (2, 5)
+    ]
+    weights = [1.11, 1.12, 1.13, 1.1, 1.2] 
+
+    mwvd = MWVD()
+    polygons = mwvd.getMWVPolygons(points, weights)
+    print([p.ExportToWkt() for p in polygons])
